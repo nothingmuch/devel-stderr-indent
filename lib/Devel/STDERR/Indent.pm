@@ -6,42 +6,49 @@ use base qw/Exporter/;
 use strict;
 use warnings;
 
-use vars qw/$VERSION @EXPORT_OK/;
+use vars qw/$VERSION @EXPORT_OK $STRING/;
 
 BEGIN {
 	$VERSION = "0.01";
 	
-	@EXPORT_OK = qw/indent/;
+	@EXPORT_OK = qw/indent $STRING/;
+
+	$STRING = "\t";
 }
 
 sub indent () {
 	__PACKAGE__->new;
 }
 
+my $count = 0;
+my $old;
+
 sub new {
 	my $class = shift;
 
-	my $old = $SIG{__WARN__};
-	my $delegate = $old || sub {
-		my $str = shift;
-		$str =~ s/^\t//g; # remove one level of indentation
-		print STDERR $str
-	};
+	if (++$count == 1) {
+		$old = $SIG{__WARN__};
 
-	$SIG{__WARN__} = sub {
-		my $str = shift;
-		$str =~ s/^/\t/g;
-		&$delegate($str);
-	};
+		my $delegate = $old || sub {
+			my $str = shift;
+			print STDERR $str
+		};
 
-	bless {
-		old => $old,
-	}, $class;
+		$SIG{__WARN__} = sub {
+			my $str = shift;
+			$str =~ s/^/$STRING x ($count - 1)/ge;
+			&$delegate($str);
+		};
+	}
+
+	bless { }, $class;
 }
 
 sub DESTROY {
 	my $self = shift;
-	$SIG{__WARN__} = $self->{old};
+	if (--$count == 0) {
+		$SIG{__WARN__} = $old;
+	}
 }
 
 __PACKAGE__;
@@ -81,11 +88,35 @@ your traces indented.
 This module makes it easy - call the indent function, and keep the thing you
 got back around until the sub exits.
 
-This will wrap $SIG{__WARN__} with something that adds one level of indentation
-to strings (c<s/^/\t/g>) and then delegates to the previous $SIG{__WARN__}
-handler.
+This will wrap $SIG{__WARN__} with something that adds as many repetitions of
+C<$Devel::STDERR::Indent::STRING> as there are live instances of the class
+(minus one):
 
-When the handle is destroyed (due to garbage collection), the wrapping is undone.
+	s/^/$STRING x ($count - 1)/ge
+
+When the handle is destroyed (due to garbage collection), $count is
+decremented.
+
+=head1 EXPORTS
+
+All exports are optional, and may be accessed fully qualified instead.
+
+=over 4
+
+=head1 indent
+
+Returns an object which you keep around for as long as you want another indent
+level:
+
+	my $h = $indent;
+	# ... all warnings are indented by one additional level
+	$h = undef; # one indentation level removed
+
+=head1 $STRING
+
+The string to repeat (defaults to C<"\t">).
+
+=back
 
 =cut
 
