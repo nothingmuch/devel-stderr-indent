@@ -36,7 +36,7 @@ sub new {
 
 		$SIG{__WARN__} = sub {
 			my $str = shift;
-			$str =~ s/^/$STRING x ($count - 1)/ge;
+			$str =~ s/^/$STRING x ($count - 1)/gme;
 			&$delegate($str);
 		};
 	}
