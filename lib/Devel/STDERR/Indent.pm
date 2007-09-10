@@ -9,7 +9,7 @@ use warnings;
 use vars qw/$VERSION @EXPORT_OK $STRING/;
 
 BEGIN {
-	$VERSION = "0.02";
+	$VERSION = "0.03";
 	
 	@EXPORT_OK = qw/indent $STRING/;
 
