@@ -13,13 +13,13 @@ sub factorial {
 	my $h = Devel::STDERR::Indent::indent;
 
 	my $n = shift;
-	warn "computing $n";
+	warn "computing $n\n";
 
 	if ($n == 0) {
 		return 1
 	} else {
 		my $got = factorial($n - 1);
-		warn "return $got * $n";
+		warn "return $got * $n\n";
 		return $n * $got;
 	}
 }
@@ -42,8 +42,6 @@ OUTPUT
 
 		factorial(3);
 	}
-
-	$output =~ s/ at .*$//gm;
 
 	is($output, $expected, "output was indented");
 }
