@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 3;
+use Test::More ( $] >= 5.008 ? ( tests => 3 ) : ( skip_all => "need open scalar ref for this test" ) );
 
 my $m; BEGIN { use_ok($m = "Devel::STDERR::Indent") }
 
