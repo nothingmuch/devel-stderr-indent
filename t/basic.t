@@ -54,21 +54,21 @@ OUTPUT
 	@args = "foo";
 
 	my $expected = <<OUTPUT;
---> foo
+ -> foo
     computing 3
-    --> foo
+     -> foo
         computing 2
-        --> foo
+         -> foo
             computing 1
-            --> foo
+             -> foo
                 computing 0
-            <-- foo
+             <- foo
             return 1 * 1
-        <-- foo
+         <- foo
         return 1 * 2
-    <-- foo
+     <- foo
     return 2 * 3
-<-- foo
+ <- foo
 OUTPUT
 
 	{

@@ -42,13 +42,13 @@ has indent_string => (
 has enter_string => (
 	isa => "Str",
 	is  => "ro",
-	default => "--> ",
+	default => " -> ",
 );
 
 has leave_string => (
 	isa => "Str",
 	is  => "ro",
-	default => "<-- ",
+	default => " <- ",
 );
 
 has _previous_hook => (
@@ -282,11 +282,11 @@ Defaults to C<'    '> (four spaces).
 
 =item enter_string
 
-Defaults to C<< '--> '>>.
+Defaults to C<< ' -> ' >>.
 
 =item leave_string
 
-Defaults to C<< '<-- '>>.
+Defaults to C<< ' <- ' >>.
 
 =back
 
