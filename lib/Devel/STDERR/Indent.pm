@@ -120,9 +120,7 @@ The string to repeat (defaults to C<"\t">).
 
 =head1 VERSION CONTROL
 
-This module is maintained using Darcs. You can get the latest version from
-L<http://nothingmuch.woobling.org/Devel-STDERR-Indent/>, and use C<darcs send>
-to commit changes.
+L<http://nothingmuch.woobling.org/code>
 
 =cut
 
