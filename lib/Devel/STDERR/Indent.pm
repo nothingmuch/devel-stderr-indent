@@ -135,8 +135,13 @@ sub should_indent {
 	# always indent if there's an enter/leave message
 	return 1 if $self->has_message;
 
-	# indent if we're nested	
-	return 1 if $self->_has_previous_hook and $self->_previous_hook->isa("Devel::STDERR::Indent::Hook");
+	# indent if we're nested
+	if ( $self->_has_previous_hook ) {
+		my $hook = $self->_previous_hook;
+		if ( blessed($hook) and $hook->isa("Devel::STDERR::Indent::Hook") ) {
+			return 1;
+		}
+	}
 
 	# otherwise we're at the top level, don't indent unnecessarily, it's distracting
 	return;
