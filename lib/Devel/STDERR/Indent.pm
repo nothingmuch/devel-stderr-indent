@@ -1,53 +1,167 @@
 #!/usr/bin/perl
 
 package Devel::STDERR::Indent;
-use base qw/Exporter/;
+use Moose;
 
-use strict;
-use warnings;
+use Scalar::Util qw(weaken);
 
-use vars qw/$VERSION @EXPORT_OK $STRING/;
+use namespace::clean -except => "meta";
 
-BEGIN {
-	$VERSION = "0.04";
-	
-	@EXPORT_OK = qw/indent $STRING/;
+use Sub::Exporter -setup => {
+	exports => [qw(indent)],
+};
 
-	$STRING = "\t";
+our $VERSION = "0.05";
+
+sub indent {
+	my $h = __PACKAGE__->new(@_);
+	$h->enter;
+	return $h;
 }
 
-sub indent () {
-	__PACKAGE__->new;
+sub BUILDARGS {
+	my ( $class, @args ) = @_;
+
+	unshift @args, "message" if @args % 2 == 1;
+
+	return {@args};
 }
 
-my $count = 0;
-my $old;
+has message => (
+	isa => "Str",
+	is  => "ro",
+	predicate => "has_message",
+);
 
-sub new {
-	my $class = shift;
+has indent_string => (
+	isa => "Str",
+	is  => "ro",
+	default => "    ",
+);
 
-	if (++$count == 1) {
-		$old = $SIG{__WARN__};
+has enter_string => (
+	isa => "Str",
+	is  => "ro",
+	default => "--> ",
+);
 
-		my $delegate = $old || sub {
-			my $str = shift;
-			print STDERR $str
-		};
+has leave_string => (
+	isa => "Str",
+	is  => "ro",
+	default => "<-- ",
+);
 
-		$SIG{__WARN__} = sub {
-			my $str = shift;
-			$str =~ s/^/$STRING x ($count - 1)/gme;
-			&$delegate($str);
-		};
+has _previous_hook => (
+	is  => "rw",
+	predicate => "_has_previous_hook",
+);
+
+has _active => (
+	isa => "Bool",
+	is  => "rw",
+);	
+
+sub DEMOLISH {
+	my $self = shift;
+	$self->leave;
+}
+
+sub enter {
+	my $self = shift;
+
+	return if $self->_active;
+
+	$self->install;
+
+	if ( $self->has_message ) {
+		$self->emit( $self->enter_string . $self->message, "\n" );
 	}
 
-	bless { }, $class;
+	$self->_active(1);
 }
 
-sub DESTROY {
+sub leave {
 	my $self = shift;
-	if (--$count == 0) {
-		$SIG{__WARN__} = $old;
+
+	return unless $self->_active;
+
+	if ( $self->has_message ) {
+		$self->emit( $self->leave_string . $self->message, "\n" );
+	}
+
+	$self->uninstall;
+
+	$self->_active(0);
+}
+
+sub warn {
+	my ( $self, @output ) = @_;
+
+	$self->emit( $self->format(@output) );
+}
+
+sub emit {
+	my ( $self, @output ) = @_;
+
+	if ( my $hook = $self->_previous_hook ) {
+		$hook->(@output);
+	} else {
+		local $,;
+		local $\;
+		print STDERR @output;
+	}
+}
+
+sub format {
+	my ( $self, @str ) = @_;
+
+	my $str = join "", @str;
+
+	if ( $self->should_indent ) {
+		my $indent = $self->indent_string;
+
+		# indent every line
+		$str =~ s/^/$indent/gm;
+
+		return $str;
+	} else {
+		return $str;
+	}
+}
+
+sub should_indent {
+	my $self = shift;
+
+	# always indent if there's an enter/leave message
+	return 1 if $self->has_message;
+
+	# indent if we're nested	
+	return 1 if $self->_has_previous_hook and $self->_previous_hook->isa("Devel::STDERR::Indent::Hook");
+
+	# otherwise we're at the top level, don't indent unnecessarily, it's distracting
+	return;
+}
+
+sub install {
+	my $self = shift;
+
+	my $weak = $self;
+	weaken($weak);
+
+	if ( my $prev = $SIG{__WARN__} ) {
+		$self->_previous_hook($prev);
+	}
+
+	$SIG{__WARN__} = bless sub { $weak->warn(@_) }, "Devel::STDERR::Indent::Hook";
+}
+
+sub uninstall {
+	my $self = shift;
+
+	if ( my $prev = $self->_previous_hook ) {
+		$SIG{__WARN__} = $prev;
+	} else {
+		delete $SIG{__WARN__};
 	}
 }
 
@@ -82,20 +196,13 @@ Devel::STDERR::Indent - Indents STDERR to aid in print-debugging recursive algor
 
 =head1 DESCRIPTION
 
-When debugging recursive code it's useful, but often too much trouble to have
-your traces indented.
+When debugging recursive code it's very usefl to indent traces, but often too
+much trouble.
 
-This module makes it easy - call the indent function, and keep the thing you
-got back around until the sub exits.
-
-This will wrap $SIG{__WARN__} with something that adds as many repetitions of
-C<$Devel::STDERR::Indent::STRING> as there are live instances of the class
-(minus one):
-
-	s/^/$STRING x ($count - 1)/ge
-
-When the handle is destroyed (due to garbage collection), $count is
-decremented.
+This module makes automates the indentation. When you call the C<indent>
+function the indentation level is increased for as long as you keep the value
+you got back. Once that goes out of scope the indentation level is decreased
+again.
 
 =head1 EXPORTS
 
@@ -112,9 +219,74 @@ level:
 	# ... all warnings are indented by one additional level
 	$h = undef; # one indentation level removed
 
-=head1 $STRING
+Instantiates a new indentation guard and calls C<enter> on it before returning it.
 
-The string to repeat (defaults to C<"\t">).
+Parameters are passed to C<new>:
+
+	indent "foo"; # will print enter/leave messages too
+
+=back
+
+=head1 METHODS
+
+=over1
+
+=item new
+
+Creates the indentation helper, but does not install it yet.
+
+If given a single argument it is assumed to be for the C<message> attribute.
+
+=item emit
+
+Output a warning with the previous installed hook.
+
+=item format
+
+Indent a message.
+
+=item warn
+
+Calls C<format> and then C<emit>.
+
+=item enter
+
+Calls C<install> the hook and outputs the optional message.
+
+=item leave
+
+Calls C<uninstall> the hook and outputs the optional message.
+
+=item install
+
+Installs the hook in C<$SIG{__WARN__}>.
+
+=item uninstall
+
+Uninstalls the hook restoring the previous value.
+
+=back
+
+=head1 ATTRIBUTES
+
+=over 4
+
+=item message
+
+If supplied will be printed in C<enter> prefixed by C<enter_string> and in
+C<leave> prefixed by C<leave_string>.
+
+=item indent_string
+
+Defaults to C<'    '> (four spaces).
+
+=item enter_string
+
+Defaults to C<< '--> '>>.
+
+=item leave_string
+
+Defaults to C<< '<-- '>>.
 
 =back
 

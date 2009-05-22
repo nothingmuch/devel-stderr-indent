@@ -3,14 +3,16 @@
 use strict;
 use warnings;
 
-use Test::More ( $] >= 5.008 ? ( tests => 3 ) : ( skip_all => "need open scalar ref for this test" ) );
+use Test::More ( $] >= 5.008 ? ( tests => 4 ) : ( skip_all => "need open scalar ref for this test" ) );
 
 my $m; BEGIN { use_ok($m = "Devel::STDERR::Indent") }
 
 can_ok($m, "indent");
 
+my @args;
+
 sub factorial {
-	my $h = Devel::STDERR::Indent::indent;
+	my $h = Devel::STDERR::Indent::indent(@args);
 
 	my $n = shift;
 	warn "computing $n\n";
@@ -28,11 +30,11 @@ sub factorial {
 	my $output;
 	my $expected = <<OUTPUT;
 computing 3
-	computing 2
-		computing 1
-			computing 0
-		return 1 * 1
-	return 1 * 2
+    computing 2
+        computing 1
+            computing 0
+        return 1 * 1
+    return 1 * 2
 return 2 * 3
 OUTPUT
 
@@ -46,3 +48,35 @@ OUTPUT
 	is($output, $expected, "output was indented");
 }
 
+{
+	my $output;
+
+	@args = "foo";
+
+	my $expected = <<OUTPUT;
+--> foo
+    computing 3
+    --> foo
+        computing 2
+        --> foo
+            computing 1
+            --> foo
+                computing 0
+            <-- foo
+            return 1 * 1
+        <-- foo
+        return 1 * 2
+    <-- foo
+    return 2 * 3
+<-- foo
+OUTPUT
+
+	{
+		open my $h, ">", \$output;
+		local *STDERR = $h;
+
+		factorial(3);
+	}
+
+	is($output, $expected, "output was indented");
+}
