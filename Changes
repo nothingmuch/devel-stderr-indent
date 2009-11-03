@@ -1,3 +1,6 @@
+0.05
+	- add no warnings 'recursion'
+
 0.04
 	- The test requires perl with open my $fh, ">", \$ref
 
