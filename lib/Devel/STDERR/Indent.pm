@@ -3,6 +3,8 @@
 package Devel::STDERR::Indent;
 use Moose;
 
+no warnings 'recursion';
+
 use Scalar::Util qw(weaken);
 
 use namespace::clean -except => "meta";
